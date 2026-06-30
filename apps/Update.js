@@ -51,7 +51,7 @@ export class Update extends plugin {
 
     /** 是否需要重启 */
     if (this.isUp) {
-      await this.reply('更新完毕，正在重启云崽以应用更新')
+      await this.reply('更新完毕，正在重启云崽以应用更新。\n⚠️ 注意：在线更新可能会覆盖你本地手动修复的 Core.js 代码，如遇画图报错请重新修改！')
       setTimeout(() => this.restart(), 2000)
     }
   }
@@ -137,7 +137,7 @@ export class Update extends plugin {
 
     let end = ''
     end =
-      '更多详细信息，请前往github查看\nhttps://github.com/CikeyQi/nai-plugin/commits/main'
+      '更多详细信息，请前往github查看\nhttps://github.com/glorygods/nai-plugin/commits/main'
 
     log = await this.makeForwardMsg(`nai-plugin更新日志，共${line}条`, log, end)
 
@@ -185,11 +185,18 @@ export class Update extends plugin {
    * @returns
    */
   async makeForwardMsg (title, msg, end) {
-    let nickname = Bot.nickname
-    if (this.e.isGroup) {
-      const info = await Bot.getGroupMemberInfo(this.e.group_id, Bot.uin)
-      nickname = info.card || info.nickname
+    let nickname = Bot.nickname || 'Yunzai-Bot'
+    
+    // 【已修复】适配新版 icqq / Yunzai，移除废弃的 Bot.getGroupMemberInfo
+    if (this.e.isGroup && this.e.group?.pickMember) {
+      try {
+        const member = this.e.group.pickMember(Bot.uin)
+        nickname = member.card || member.nickname || nickname
+      } catch (error) {
+        // 忽略获取异常，使用默认昵称
+      }
     }
+
     const userInfo = {
       user_id: Bot.uin,
       nickname
