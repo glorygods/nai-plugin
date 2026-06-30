@@ -102,15 +102,46 @@ async function getPicture(param, user, type, token) {
   logger.mark(logger.blue('[NAI PLUGIN]'), logger.cyan(`用户 ${user} 参数：`), mergeData);
 
   try {
+    // 1. 正常请求文本流数据
     const response = await axios.post(`${base_url}/ai/generate-image`, mergeData, {
       headers: { ...headers, Authorization: `Bearer ${token}` },
       httpsAgent: agent,
-      responseType: 'arraybuffer'
+      responseType: 'text'
     });
 
-    const fileName = Date.now();
+    const resText = response.data;
+    
+    // 2. 匹配并提取标准的图片 JSON
+    const jsonMatch = resText.match(/\{"image":[\s\S]*?\}/);
+
+    if (!jsonMatch) {
+      logger.error(`[NAI PLUGIN] 未匹配到有效的 JSON 响应，原始数据：\n${resText.slice(0, 500)}`);
+      throw new Error('NovelAI 未返回有效的图片数据，可能被 Cloudflare 拦截或账号异常');
+    }
+
+    const resJson = JSON.parse(jsonMatch[0]);
+    const base64Str = resJson.image; // 提取图片真正的 Base64 数据
+    const fileName = resJson.seed || Date.now(); // 优先拿 seed 做文件名
+    
+    // 3. 构建本地保存的文件夹路径（和原插件格式保持完全一致）
+    const dirPath = `./plugins/nai-plugin/resources/userPic/${user}`;
+    const savePath = `${dirPath}/${fileName}.png`; // 直接存为标准的 png 图片
+
+    // 4. 如果用户文件夹不存在，则递归创建它
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // 5. 将 Base64 转换为二进制 Buffer 并直接写入本地文件
+    const imgBuffer = Buffer.from(base64Str, 'base64');
+    fs.writeFileSync(savePath, imgBuffer);
+    
+    logger.mark(logger.blue('[NAI PLUGIN]'), logger.green(`图片已成功保存至本地：${savePath}`));
+    // ============================
+
+    // 6. 返回给上层 Image.js，把原来的逻辑对齐
     return {
-      base64: fs.readFileSync(await download(response.data, user, fileName), 'base64'),
+      base64: base64Str,
       fileName
     };
   } catch (error) {
