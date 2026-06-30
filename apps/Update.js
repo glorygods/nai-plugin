@@ -18,7 +18,7 @@ export class Update extends plugin {
             priority: 1009,
             rule: [
                 {
-                    reg: '^[/#]nai --update$',
+                    reg: '^[/#]nai --update(强制)$',
                     fnc: 'update'
                 }
             ]
